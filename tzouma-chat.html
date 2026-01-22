@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<!--
+  Tzouma Clinic – Product chat widget
+  Webhook: https://n8n.srv1227791.hstgr.cloud/webhook/chat-visia-http
+
+  Embed on tzouma.gr via iframe:
+  <iframe src="https://yoursite.com/tzouma-chat.html" style="border:0;width:100%;min-height:600px" title="Chat"></iframe>
+  Or use as standalone page e.g. /chat, /products-chat
+-->
+<html lang="el">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ρωτήστε για προϊόντα | Tzouma Clinic</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=DM+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #faf8f5;
+      --bg-card: #fff;
+      --text: #2c2c2c;
+      --text-muted: #6b6b6b;
+      --accent: #8b7355;
+      --accent-soft: #c4ad8f;
+      --accent-bg: rgba(139, 115, 85, 0.08);
+      --border: #e8e4de;
+      --user-msg: #8b7355;
+      --bot-msg-bg: #f5f2ed;
+      --shadow: 0 4px 24px rgba(44, 44, 44, 0.06);
+      --shadow-lg: 0 12px 48px rgba(44, 44, 44, 0.1);
+      --radius: 16px;
+      --radius-sm: 12px;
+      --font-serif: 'Cormorant Garamond', Georgia, serif;
+      --font-sans: 'DM Sans', system-ui, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.55;
+    }
+
+    /* Hero / header */
+    .page-header {
+      text-align: center;
+      padding: clamp(2rem, 6vw, 4rem) 1.5rem 2rem;
+      max-width: 640px;
+      margin: 0 auto;
+    }
+
+    .page-header h1 {
+      font-family: var(--font-serif);
+      font-size: clamp(1.75rem, 4vw, 2.5rem);
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 0.5rem;
+    }
+
+    .page-header p {
+      font-size: 1rem;
+      color: var(--text-muted);
+    }
+
+    .page-header a {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    .page-header a:hover {
+      text-decoration: underline;
+    }
+
+    /* Chat widget */
+    .chat-widget {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 9999;
+      font-family: var(--font-sans);
+    }
+
+    .chat-toggle {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: var(--shadow-lg);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .chat-toggle:hover {
+      transform: scale(1.05);
+      box-shadow: 0 16px 40px rgba(139, 115, 85, 0.35);
+    }
+
+    .chat-toggle svg {
+      width: 28px;
+      height: 28px;
+    }
+
+    .chat-panel {
+      position: absolute;
+      bottom: calc(60px + 12px);
+      right: 0;
+      width: min(400px, calc(100vw - 48px));
+      height: 560px;
+      max-height: calc(100vh - 180px);
+      background: var(--bg-card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-lg);
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+      animation: panelIn 0.25s ease-out;
+    }
+
+    .chat-panel.open {
+      display: flex;
+    }
+
+    @keyframes panelIn {
+      from {
+        opacity: 0;
+        transform: translateY(8px) scale(0.98);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    .chat-header {
+      padding: 1rem 1.25rem;
+      background: linear-gradient(135deg, var(--accent) 0%, #6f5d44 100%);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .chat-header .avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.25);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-serif);
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+
+    .chat-header div:last-child {
+      flex: 1;
+    }
+
+    .chat-header h2 {
+      font-family: var(--font-serif);
+      font-size: 1.15rem;
+      font-weight: 600;
+    }
+
+    .chat-header span {
+      font-size: 0.8rem;
+      opacity: 0.9;
+    }
+
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      scroll-behavior: smooth;
+    }
+
+    .chat-messages::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .chat-messages::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .chat-messages::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 3px;
+    }
+
+    .msg {
+      max-width: 88%;
+      padding: 0.75rem 1rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.95rem;
+      line-height: 1.5;
+    }
+
+    .msg.user {
+      align-self: flex-end;
+      background: var(--user-msg);
+      color: #fff;
+    }
+
+    .msg.bot {
+      align-self: flex-start;
+      background: var(--bot-msg-bg);
+      color: var(--text);
+    }
+
+    .msg.bot .product-card,
+    .msg.bot .product-card * {
+      max-width: 100%;
+    }
+
+    .msg.bot h3 {
+      font-family: var(--font-serif);
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+    }
+
+    .msg.bot a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    .msg.bot a:hover {
+      text-decoration: underline;
+    }
+
+    .typing {
+      align-self: flex-start;
+      display: flex;
+      gap: 4px;
+      padding: 0.75rem 1rem;
+      background: var(--bot-msg-bg);
+      border-radius: var(--radius-sm);
+    }
+
+    .typing span {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent-soft);
+      animation: bounce 1.2s ease-in-out infinite;
+    }
+
+    .typing span:nth-child(2) { animation-delay: 0.15s; }
+    .typing span:nth-child(3) { animation-delay: 0.3s; }
+
+    @keyframes bounce {
+      0%, 60%, 100% { transform: translateY(0); }
+      30% { transform: translateY(-4px); }
+    }
+
+    .chat-input-wrap {
+      padding: 1rem;
+      border-top: 1px solid var(--border);
+      background: var(--bg-card);
+    }
+
+    .chat-input-form {
+      display: flex;
+      gap: 0.5rem;
+      align-items: flex-end;
+    }
+
+    .chat-input {
+      flex: 1;
+      min-height: 44px;
+      padding: 0.6rem 1rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-family: var(--font-sans);
+      font-size: 0.95rem;
+      resize: none;
+      transition: border-color 0.2s;
+    }
+
+    .chat-input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .chat-input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .chat-send {
+      width: 44px;
+      height: 44px;
+      border-radius: var(--radius-sm);
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s, transform 0.15s;
+    }
+
+    .chat-send:hover:not(:disabled) {
+      background: #6f5d44;
+      transform: scale(1.03);
+    }
+
+    .chat-send:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .chat-send svg {
+      width: 20px;
+      height: 20px;
+    }
+
+    .error-msg {
+      align-self: flex-start;
+      padding: 0.75rem 1rem;
+      background: #fce8e8;
+      color: #b91c1c;
+      border-radius: var(--radius-sm);
+      font-size: 0.9rem;
+    }
+
+    /* Product cards from LLM (inline styles in response) */
+    .product-card {
+      margin: 0.75rem 0;
+      padding: 0.75rem;
+      background: #fff;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+    }
+
+    .product-name {
+      font-family: var(--font-serif);
+      font-size: 1rem;
+      margin-bottom: 0.35rem;
+    }
+
+    .product-info {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-bottom: 0.5rem;
+    }
+
+    .product-desc {
+      font-size: 0.85rem;
+      color: var(--text);
+    }
+
+    .product-desc p {
+      margin-bottom: 0.35rem;
+    }
+
+    .product-link {
+      display: inline-block;
+      margin-top: 0.5rem;
+      font-weight: 500;
+    }
+
+    @media (max-width: 480px) {
+      .chat-widget {
+        bottom: 16px;
+        right: 16px;
+      }
+
+      .chat-panel {
+        width: calc(100vw - 32px);
+        right: -8px;
+        height: 70vh;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="page-header">
+    <h1>Ρωτήστε για προϊόντα</h1>
+    <p>
+      Ο υπερύθρινος σύμβουλος προϊόντων της <a href="https://tzouma.gr/" target="_blank" rel="noopener">Tzouma Clinic</a> σας βοηθά να βρείτε δερματολογικά προϊόντα.
+    </p>
+  </header>
+
+  <div class="chat-widget">
+    <button type="button" class="chat-toggle" id="chatToggle" aria-label="Άνοιγμα συνομιλίας">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+      </svg>
+    </button>
+
+    <div class="chat-panel" id="chatPanel" role="dialog" aria-label="Συνομιλία">
+      <div class="chat-header">
+        <div class="avatar">TC</div>
+        <div>
+          <h2>Tzouma Clinic</h2>
+          <span>Σύμβουλος προϊόντων</span>
+        </div>
+      </div>
+
+      <div class="chat-messages" id="chatMessages">
+        <div class="msg bot">
+          Γεια σας! Ρωτήστε μας για δερματολογικά προϊόντα, βιταμίνες, αντιηλιακά ή οποιοδήποτε άλλο ερώτημα. Πώς μπορούμε να σας βοηθήσουμε;
+        </div>
+      </div>
+
+      <div class="chat-input-wrap">
+        <form class="chat-input-form" id="chatForm">
+          <textarea
+            class="chat-input"
+            id="chatInput"
+            placeholder="Γράψτε την ερώτησή σας..."
+            rows="1"
+            maxlength="500"
+          ></textarea>
+          <button type="submit" class="chat-send" id="chatSend" aria-label="Αποστολή">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="22" y1="2" x2="11" y2="13" />
+              <polygon points="22 2 15 22 11 13 2 9 22 2" />
+            </svg>
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const WEBHOOK_URL = 'https://n8n.srv1227791.hstgr.cloud/webhook/chat-visia-http';
+      const toggle = document.getElementById('chatToggle');
+      const panel = document.getElementById('chatPanel');
+      const messages = document.getElementById('chatMessages');
+      const form = document.getElementById('chatForm');
+      const input = document.getElementById('chatInput');
+      const sendBtn = document.getElementById('chatSend');
+
+      let sessionId = 'session-' + Date.now();
+
+      function openPanel() {
+        panel.classList.add('open');
+        panel.setAttribute('aria-hidden', 'false');
+        input.focus();
+      }
+
+      function closePanel() {
+        panel.classList.remove('open');
+        panel.setAttribute('aria-hidden', 'true');
+      }
+
+      toggle.addEventListener('click', function () {
+        if (panel.classList.contains('open')) closePanel();
+        else openPanel();
+      });
+
+      function scrollToBottom() {
+        messages.scrollTop = messages.scrollHeight;
+      }
+
+      function addMessage(text, isUser, isHtml) {
+        const wrap = document.createElement('div');
+        wrap.className = 'msg ' + (isUser ? 'user' : 'bot');
+        if (isHtml) {
+          wrap.innerHTML = text;
+        } else {
+          wrap.textContent = text;
+        }
+        messages.appendChild(wrap);
+        scrollToBottom();
+      }
+
+      function addTyping() {
+        const wrap = document.createElement('div');
+        wrap.className = 'typing';
+        wrap.id = 'typing';
+        wrap.innerHTML = '<span></span><span></span><span></span>';
+        messages.appendChild(wrap);
+        scrollToBottom();
+      }
+
+      function removeTyping() {
+        const el = document.getElementById('typing');
+        if (el) el.remove();
+      }
+
+      function addError(text) {
+        const wrap = document.createElement('div');
+        wrap.className = 'error-msg';
+        wrap.textContent = text;
+        messages.appendChild(wrap);
+        scrollToBottom();
+      }
+
+      form.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        const text = input.value.trim();
+        if (!text) return;
+
+        input.value = '';
+        addMessage(text, true, false);
+
+        addTyping();
+        sendBtn.disabled = true;
+
+        try {
+          const res = await fetch(WEBHOOK_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: text, session_id: sessionId }),
+          });
+
+          const data = await res.json().catch(() => ({}));
+
+          if (!res.ok) {
+            throw new Error(data?.message || 'Σφάλμα δικτύου. Δοκιμάστε ξανά.');
+          }
+
+          removeTyping();
+
+          let reply = '';
+          const raw = data?.data ?? data?.body ?? data;
+          if (Array.isArray(raw) && raw.length) {
+            const last = raw[raw.length - 1];
+            const j = last?.json ?? last;
+            reply = j?.response ?? (typeof j === 'string' ? j : '');
+          } else if (Array.isArray(data) && data.length) {
+            const last = data[data.length - 1];
+            const j = last?.json ?? last;
+            reply = j?.response ?? (typeof j === 'string' ? j : '');
+          } else if (typeof (raw?.response) === 'string') {
+            reply = raw.response;
+          } else if (typeof data?.response === 'string') {
+            reply = data.response;
+          } else if (typeof data === 'string') {
+            reply = data;
+          }
+
+          if (!reply) reply = 'Δεν απαντήθηκε κάτι. Δοκιμάστε ξανά.';
+          addMessage(reply, false, true);
+        } catch (err) {
+          removeTyping();
+          addError(err.message || 'Σφάλμα σύνδεσης. Ελέγξτε το δίκτυό σας και δοκιμάστε ξανά.');
+        } finally {
+          sendBtn.disabled = false;
+        }
+      });
+
+      input.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          form.requestSubmit();
+        }
+      });
+
+      input.addEventListener('input', function () {
+        this.style.height = 'auto';
+        this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+      });
+    })();
+  </script>
+</body>
+</html>
