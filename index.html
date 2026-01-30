@@ -286,6 +286,9 @@
       font-size: 0.85rem;
       color: var(--text-muted);
       font-style: italic;
+      transition: opacity 0.15s ease-in-out;
+      display: inline-block;
+      min-width: 120px;
     }
 
     /* Progress bar for typing indicator */
@@ -436,6 +439,17 @@
       color: var(--text);
     }
 
+    /* Hide English descriptions */
+    .product-desc p:has(strong),
+    .product-desc p strong {
+      display: none;
+    }
+
+    /* Show only Greek description (first p without strong) */
+    .product-desc p:first-child {
+      display: block;
+    }
+
     .product-link {
       display: inline-block;
       margin-top: 0.3rem;
@@ -467,9 +481,15 @@
       color: #991b1b;
     }
 
-    .stock.unknown {
-      background: #f3f4f6;
-      color: #6b7280;
+    .stock.unknown,
+    .stock:contains('N/A'),
+    .stock:contains('Unknown') {
+      display: none;
+    }
+
+    /* Hide N/A values in product info */
+    .product-info .hide-na {
+      display: none;
     }
 
     @media (max-width: 480px) {
@@ -558,6 +578,8 @@
         'Περιμένετε...',
         'Σχεδόν έτοιμο...'
       ];
+      let typingInterval = null;
+      let currentMessageIndex = 0;
 
       function openPanel() {
         panel.classList.add('open');
@@ -584,6 +606,45 @@
         wrap.className = 'msg ' + (isUser ? 'user' : 'bot');
         if (isHtml) {
           wrap.innerHTML = text;
+
+          // Filter out N/A values from product info
+          if (!isUser) {
+            const productInfo = wrap.querySelectorAll('.product-info');
+            productInfo.forEach(info => {
+              const spans = info.querySelectorAll('span');
+              spans.forEach(span => {
+                const text = span.textContent.trim();
+                if (text === 'N/A' || text === 'Unknown') {
+                  span.classList.add('hide-na');
+                  // Also hide preceding separator
+                  if (span.previousElementSibling && span.previousElementSibling.classList.contains('separator')) {
+                    span.previousElementSibling.classList.add('hide-na');
+                  }
+                  // Hide following separator
+                  if (span.nextElementSibling && span.nextElementSibling.classList.contains('separator')) {
+                    span.nextElementSibling.classList.add('hide-na');
+                  }
+                }
+              });
+            });
+
+            // Hide English descriptions and unknown stock
+            const descPs = wrap.querySelectorAll('.product-desc p');
+            descPs.forEach(p => {
+              const strong = p.querySelector('strong');
+              if (strong && strong.textContent.includes('English')) {
+                p.style.display = 'none';
+              }
+            });
+
+            const stocks = wrap.querySelectorAll('.stock');
+            stocks.forEach(stock => {
+              const text = stock.textContent.trim();
+              if (text === 'N/A' || text === 'Unknown' || text === 'Σε απόθεμα' || text === 'In Stock') {
+                stock.style.display = 'none';
+              }
+            });
+          }
         } else {
           wrap.textContent = text;
         }
@@ -596,14 +657,14 @@
         wrap.className = 'typing';
         wrap.id = 'typing';
 
-        const randomMessage = typingMessages[Math.floor(Math.random() * typingMessages.length)];
+        currentMessageIndex = 0;
 
         wrap.innerHTML = `
           <div class="typing-content">
             <div class="typing-dots">
               <span></span><span></span><span></span>
             </div>
-            <span class="typing-text">${randomMessage}</span>
+            <span class="typing-text" id="typingText">${typingMessages[0]}</span>
           </div>
           <div class="typing-progress">
             <div class="typing-progress-bar"></div>
@@ -611,9 +672,27 @@
         `;
         messages.appendChild(wrap);
         scrollToBottom();
+
+        // Cycle through messages every 1.5 seconds
+        currentMessageIndex = 0;
+        typingInterval = setInterval(() => {
+          currentMessageIndex = (currentMessageIndex + 1) % typingMessages.length;
+          const typingText = document.getElementById('typingText');
+          if (typingText) {
+            typingText.style.opacity = '0';
+            setTimeout(() => {
+              typingText.textContent = typingMessages[currentMessageIndex];
+              typingText.style.opacity = '1';
+            }, 150);
+          }
+        }, 1500);
       }
 
       function removeTyping() {
+        if (typingInterval) {
+          clearInterval(typingInterval);
+          typingInterval = null;
+        }
         const el = document.getElementById('typing');
         if (el) el.remove();
       }
