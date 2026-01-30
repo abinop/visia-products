@@ -246,16 +246,27 @@
       text-decoration: underline;
     }
 
+    /* Enhanced typing indicator with message */
     .typing {
       align-self: flex-start;
-      display: flex;
-      gap: 4px;
-      padding: 0.75rem 1rem;
+      padding: 0.5rem 0.75rem 0.5rem 1rem;
       background: var(--bot-msg-bg);
       border-radius: var(--radius-sm);
     }
 
-    .typing span {
+    .typing-content {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .typing-dots {
+      display: flex;
+      gap: 4px;
+      padding: 0.25rem 0;
+    }
+
+    .typing-dots span {
       width: 6px;
       height: 6px;
       border-radius: 50%;
@@ -263,12 +274,41 @@
       animation: bounce 1.2s ease-in-out infinite;
     }
 
-    .typing span:nth-child(2) { animation-delay: 0.15s; }
-    .typing span:nth-child(3) { animation-delay: 0.3s; }
+    .typing-dots span:nth-child(2) { animation-delay: 0.15s; }
+    .typing-dots span:nth-child(3) { animation-delay: 0.3s; }
 
     @keyframes bounce {
       0%, 60%, 100% { transform: translateY(0); }
       30% { transform: translateY(-4px); }
+    }
+
+    .typing-text {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      font-style: italic;
+    }
+
+    /* Progress bar for typing indicator */
+    .typing-progress {
+      width: 100%;
+      height: 3px;
+      background: var(--border);
+      border-radius: 2px;
+      margin-top: 0.5rem;
+      overflow: hidden;
+    }
+
+    .typing-progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent-soft), var(--accent));
+      border-radius: 2px;
+      animation: progress 2s ease-in-out infinite;
+    }
+
+    @keyframes progress {
+      0% { width: 0%; margin-left: 0; }
+      50% { width: 70%; margin-left: 15%; }
+      100% { width: 0%; margin-left: 100%; }
     }
 
     .chat-input-wrap {
@@ -342,40 +382,94 @@
       font-size: 0.9rem;
     }
 
-    /* Product cards from LLM (inline styles in response) */
+    /* COMPACT Product cards from LLM */
     .product-card {
-      margin: 0.75rem 0;
-      padding: 0.75rem;
+      margin: 0.4rem 0;
+      padding: 0.5rem 0.6rem;
       background: #fff;
-      border-radius: var(--radius-sm);
+      border-radius: 8px;
       border: 1px solid var(--border);
+      font-size: 0.85rem;
     }
 
     .product-name {
       font-family: var(--font-serif);
-      font-size: 1rem;
-      margin-bottom: 0.35rem;
-    }
-
-    .product-info {
-      font-size: 0.85rem;
-      color: var(--text-muted);
-      margin-bottom: 0.5rem;
-    }
-
-    .product-desc {
-      font-size: 0.85rem;
+      font-size: 0.92rem;
+      font-weight: 600;
+      margin-bottom: 0.2rem;
       color: var(--text);
     }
 
+    .product-info {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-bottom: 0.3rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.3rem 0.4rem;
+      align-items: center;
+    }
+
+    .product-info span {
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .product-info .separator {
+      color: var(--border);
+      font-size: 0.6rem;
+    }
+
+    .product-desc {
+      font-size: 0.78rem;
+      color: var(--text);
+      margin-bottom: 0.2rem;
+    }
+
     .product-desc p {
-      margin-bottom: 0.35rem;
+      margin-bottom: 0.2rem;
+      line-height: 1.4;
+    }
+
+    .product-desc p strong {
+      font-weight: 500;
+      color: var(--text);
     }
 
     .product-link {
       display: inline-block;
-      margin-top: 0.5rem;
+      margin-top: 0.3rem;
+      font-size: 0.8rem;
       font-weight: 500;
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    .product-link:hover {
+      text-decoration: underline;
+    }
+
+    /* Stock status */
+    .stock {
+      font-size: 0.7rem;
+      padding: 0.1rem 0.4rem;
+      border-radius: 4px;
+      font-weight: 500;
+    }
+
+    .stock.in-stock {
+      background: #d1fae5;
+      color: #065f46;
+    }
+
+    .stock.out-of-stock {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+    .stock.unknown {
+      background: #f3f4f6;
+      color: #6b7280;
     }
 
     @media (max-width: 480px) {
@@ -388,6 +482,10 @@
         width: calc(100vw - 32px);
         right: -8px;
         height: 70vh;
+      }
+
+      .product-card {
+        padding: 0.4rem 0.5rem;
       }
     }
   </style>
@@ -453,6 +551,13 @@
       const sendBtn = document.getElementById('chatSend');
 
       let sessionId = 'session-' + Date.now();
+      let typingMessages = [
+        'Αναζητώ προϊόντα...',
+        'Σαρώνω το κατάλογο...',
+        'Επεξεργάζομαι την ερώτηση...',
+        'Περιμένετε...',
+        'Σχεδόν έτοιμο...'
+      ];
 
       function openPanel() {
         panel.classList.add('open');
@@ -490,7 +595,20 @@
         const wrap = document.createElement('div');
         wrap.className = 'typing';
         wrap.id = 'typing';
-        wrap.innerHTML = '<span></span><span></span><span></span>';
+
+        const randomMessage = typingMessages[Math.floor(Math.random() * typingMessages.length)];
+
+        wrap.innerHTML = `
+          <div class="typing-content">
+            <div class="typing-dots">
+              <span></span><span></span><span></span>
+            </div>
+            <span class="typing-text">${randomMessage}</span>
+          </div>
+          <div class="typing-progress">
+            <div class="typing-progress-bar"></div>
+          </div>
+        `;
         messages.appendChild(wrap);
         scrollToBottom();
       }
@@ -514,6 +632,7 @@
         if (!text) return;
 
         input.value = '';
+        input.style.height = 'auto';
         addMessage(text, true, false);
 
         addTyping();
